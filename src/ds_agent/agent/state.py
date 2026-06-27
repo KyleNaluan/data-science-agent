@@ -1,0 +1,14 @@
+import operator
+from typing import Annotated, Any
+
+from typing_extensions import TypedDict
+
+
+class AgentState(TypedDict):
+    csv_path: str
+    output_dir: str
+    df: Any  # pd.DataFrame — lives in memory only, never sent to LLM
+    messages: Annotated[list[dict], operator.add]
+    tool_results: dict  # {tool_name: tool_output_dict}
+    trace_entries: Annotated[list[dict], operator.add]
+    report: str

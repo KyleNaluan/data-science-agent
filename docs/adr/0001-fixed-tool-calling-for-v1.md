@@ -1,0 +1,3 @@
+# Fixed tool-calling for V1 agent execution
+
+V1's EDA scope (schema inference, distributions, outliers, correlation, missingness) is fully enumerable as a set of operations, so the agent calls predefined Python tools with structured arguments rather than generating and executing arbitrary code. This avoids needing a code sandbox, keeps output benchmarkable against the V1 success metrics (e.g. ≥95% type inference accuracy), and limits what the LLM ever sees to schema + tool outputs. Model selection and feature-engineering decisions in V2 remain tool-callable since their decision space is also enumerable; if V2's natural-language Q&A later needs arbitrary ad-hoc computation, that's solved by adding a new tool then, not by revisiting this decision.
