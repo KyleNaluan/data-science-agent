@@ -13,11 +13,12 @@ import typer
 
 from .agent.graph import build_graph
 from .llm.base import LLMClient
+from .tools.distribution import DistributionTool
 from .tools.schema_inference import SchemaInferenceTool
 
 app = typer.Typer(help="Data science agent -- EDA + report generation.")
 
-_DEFAULT_TOOLS = [SchemaInferenceTool()]
+_DEFAULT_TOOLS = [SchemaInferenceTool(), DistributionTool()]
 
 
 def _build_llm_client(provider: str | None) -> LLMClient:
@@ -48,14 +49,24 @@ def _build_llm_client(provider: str | None) -> LLMClient:
         )
 
 
-def run_agent(csv_path: str, output_dir: str, llm_client: LLMClient) -> None:
+def run_agent(
+    csv_path: str,
+    output_dir: str,
+    llm_client: LLMClient,
+    interactive: bool | None = None,
+) -> None:
     """
     Run the agent pipeline end-to-end.
 
     Accepts an injected LLM client so callers (tests, CLI, future service wrappers)
     can substitute any conforming implementation without touching the graph.
+
+    interactive controls uncertainty checkpoints:
+      None  → auto-detect via sys.stdin.isatty()
+      True  → always prompt the user
+      False → always apply defaults and record FlaggedAssumptions
     """
-    compiled = build_graph(llm_client=llm_client, tools=_DEFAULT_TOOLS)
+    compiled = build_graph(llm_client=llm_client, tools=_DEFAULT_TOOLS, interactive=interactive)
     initial_state = {
         "csv_path": csv_path,
         "output_dir": output_dir,
@@ -64,6 +75,7 @@ def run_agent(csv_path: str, output_dir: str, llm_client: LLMClient) -> None:
         "tool_results": {},
         "trace_entries": [],
         "report": "",
+        "flagged_assumptions": [],
     }
     compiled.invoke(initial_state)
 
