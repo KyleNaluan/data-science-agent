@@ -13,3 +13,8 @@ def simple_csv() -> Path:
 @pytest.fixture
 def ambiguous_id_csv() -> Path:
     return FIXTURES_DIR / "ambiguous_id.csv"
+
+
+@pytest.fixture
+def tiny_csv() -> Path:
+    return FIXTURES_DIR / "tiny_dataset.csv"

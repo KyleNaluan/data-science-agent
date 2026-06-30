@@ -12,3 +12,4 @@ class AgentState(TypedDict):
     tool_results: dict  # {tool_name: tool_output_dict}
     trace_entries: Annotated[list[dict], operator.add]
     report: str
+    flagged_assumptions: Annotated[list[dict], operator.add]
