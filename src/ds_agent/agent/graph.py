@@ -131,7 +131,7 @@ def _generate_outlier_plots(
         iqr_indices = set(col["iqr_method"]["outlier_indices"])
 
         fig, ax = plt.subplots(figsize=(7, 4))
-        ax.boxplot(series.values, vert=False, widths=0.5, patch_artist=True,
+        ax.boxplot(series.values, orientation="horizontal", widths=0.5, patch_artist=True,
                    boxprops=dict(facecolor="steelblue", alpha=0.6),
                    medianprops=dict(color="white", linewidth=2))
 
