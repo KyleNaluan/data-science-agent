@@ -1,0 +1,6 @@
+{
+  "columns": {
+    "age": "categorical",
+    "salary": "categorical"
+  }
+}

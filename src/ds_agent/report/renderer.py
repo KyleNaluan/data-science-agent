@@ -12,6 +12,7 @@ def _safe_filename(col_name: str) -> str:
 def _render_data_quality_scorecard(
     schema: dict,
     flagged_assumptions: list[dict] | None = None,
+    missing_value_data: dict | None = None,
 ) -> str:
     cols = schema.get("columns", [])
     if not cols:
@@ -56,16 +57,61 @@ def _render_data_quality_scorecard(
                     f"- **tiny_dataset**: dataset has only {row_count} rows; "
                     "analysis proceeded with defaults"
                 )
+            elif trigger_type == "high_missing_rate":
+                col_name = ctx.get("column", "?")
+                rate = ctx.get("missing_rate", 0)
+                rec = ctx.get("imputation_recommendation", "")
+                lines.append(
+                    f"- **{col_name}**: {rate * 100:.1f}% missing values — {rec}"
+                )
+            elif trigger_type == "conflicting_schema_hints":
+                col_name = ctx.get("column", "?")
+                hint = ctx.get("hint_type", "?")
+                inferred = ctx.get("inferred_type", "?")
+                lines.append(
+                    f"- **{col_name}**: schema file specifies `{hint}`, "
+                    f"inference suggested `{inferred}` — used schema file hint"
+                )
+            elif trigger_type == "ambiguous_join_key":
+                candidates = ctx.get("candidates", [])
+                lines.append(
+                    f"- **ambiguous_join_key**: proceeded with best join candidate "
+                    + (f"({candidates[0]})" if candidates else "")
+                )
             else:
                 lines.append(f"- **{trigger_type}**: assumed `{assumption.get('assumption', '?')}`")
+
+    # Missing value breakdown (issue #4)
+    if missing_value_data:
+        mv_cols = missing_value_data.get("columns", [])
+        cols_with_missing = [c for c in mv_cols if c["missing_count"] > 0]
+        if cols_with_missing:
+            lines.append("")
+            lines.append("### Missing Value Breakdown\n")
+            lines.append("| Column | Missing Count | Missing Rate | Imputation Recommendation |")
+            lines.append("|--------|--------------|--------------|--------------------------|")
+            for c in mv_cols:
+                rate_str = f"{c['missing_rate'] * 100:.1f}%"
+                lines.append(
+                    f"| {c['column']} | {c['missing_count']} | {rate_str} "
+                    f"| {c['imputation_recommendation']} |"
+                )
 
     return "\n".join(lines) + "\n"
 
 
-def _render_distributions(dist_data: dict) -> str:
+def _render_distributions(
+    dist_data: dict,
+    outlier_data: dict | None = None,
+) -> str:
     cols = dist_data.get("columns", [])
     if not cols:
         return "_No numeric columns found for distribution analysis._\n"
+
+    outlier_by_col: dict[str, dict] = {}
+    if outlier_data:
+        for ocol in outlier_data.get("columns", []):
+            outlier_by_col[ocol["column"]] = ocol
 
     lines: list[str] = []
     for col in cols:
@@ -81,6 +127,56 @@ def _render_distributions(dist_data: dict) -> str:
         lines.append("")
         lines.append(f"![{col['column']} histogram](charts/{safe}.png)")
         lines.append("")
+
+        # Outlier callout for this column (issue #5)
+        if col["column"] in outlier_by_col:
+            ocol = outlier_by_col[col["column"]]
+            lines.append(ocol["narrative"])
+            iqr_c = ocol["iqr_method"]["outlier_count"]
+            zsc_c = ocol["zscore_method"]["outlier_count"]
+            lines.append(
+                f"- IQR outliers: {iqr_c} | "
+                f"Z-score outliers: {zsc_c}"
+            )
+            lines.append("")
+            lines.append(f"![{col['column']} outliers](charts/{safe}_outliers.png)")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _render_correlations(corr_data: dict) -> str:
+    columns = corr_data.get("columns", [])
+    ranked_pairs = corr_data.get("ranked_pairs", [])
+    narrative_pairs = corr_data.get("narrative_pairs", [])
+    matrix = corr_data.get("matrix", {})
+
+    if not columns or len(columns) < 2:
+        return "_Not enough numeric columns for correlation analysis._\n"
+
+    lines: list[str] = []
+
+    lines.append("### Notable Relationships\n")
+    if narrative_pairs:
+        for narrative in narrative_pairs:
+            lines.append(f"- {narrative}")
+    else:
+        lines.append("_No strong correlations found (|r| ≥ 0.3)._")
+    lines.append("")
+
+    lines.append("![Correlation Heatmap](charts/correlation_heatmap.png)\n")
+
+    lines.append("### Full Correlation Matrix\n")
+    header = "| |" + "|".join(f" {c} " for c in columns) + "|"
+    separator = "|---|" + "|".join("---" for _ in columns) + "|"
+    lines.append(header)
+    lines.append(separator)
+    for col_a in columns:
+        row_vals = [
+            f"{matrix.get(col_a, {}).get(col_b, 0.0):.3f}"
+            for col_b in columns
+        ]
+        lines.append(f"| **{col_a}** |" + "|".join(row_vals) + "|")
 
     return "\n".join(lines)
 
@@ -100,28 +196,41 @@ def render_report(
     csv_path = (metadata or {}).get("csv_path", "unknown")
 
     sections: list[str] = []
-
     sections.append(f"# EDA Report\n\n**Source:** `{csv_path}`\n")
-
     sections.append("## Executive Summary\n\n" + _PLACEHOLDER)
 
     schema = tool_results.get("schema_inference")
+    missing_value_data = tool_results.get("missing_value_analysis")
     if schema:
         scorecard_body = _render_data_quality_scorecard(
-            schema, flagged_assumptions=flagged_assumptions
+            schema,
+            flagged_assumptions=flagged_assumptions,
+            missing_value_data=missing_value_data,
         )
     else:
         scorecard_body = _PLACEHOLDER
     sections.append("## Data Quality Scorecard\n\n" + scorecard_body)
 
     dist_data = tool_results.get("distribution_analysis")
+    outlier_data = tool_results.get("outlier_detection")
     if dist_data:
-        dist_body = _render_distributions(dist_data)
+        dist_body = _render_distributions(dist_data, outlier_data=outlier_data)
+    elif outlier_data:
+        # Outlier data present but no distribution data — still render outlier findings
+        dist_body = _render_distributions({"columns": []}, outlier_data=outlier_data)
+        if dist_body.startswith("_No numeric"):
+            dist_body = _PLACEHOLDER
     else:
         dist_body = _PLACEHOLDER
     sections.append("## Distributions\n\n" + dist_body)
 
-    sections.append("## Correlations\n\n" + _PLACEHOLDER)
+    corr_data = tool_results.get("correlation_analysis")
+    if corr_data:
+        corr_body = _render_correlations(corr_data)
+    else:
+        corr_body = _PLACEHOLDER
+    sections.append("## Correlations\n\n" + corr_body)
+
     sections.append("## Feature Engineering Recommendations\n\n" + _PLACEHOLDER)
 
     return "\n\n".join(sections) + "\n"

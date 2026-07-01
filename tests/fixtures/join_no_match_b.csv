@@ -1,0 +1,4 @@
+customer_id,email,region
+1,alice@example.com,North
+2,bob@example.com,South
+3,carol@example.com,East

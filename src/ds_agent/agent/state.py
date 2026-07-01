@@ -13,3 +13,4 @@ class AgentState(TypedDict):
     trace_entries: Annotated[list[dict], operator.add]
     report: str
     flagged_assumptions: Annotated[list[dict], operator.add]
+    extra_csv_paths: list[str]  # additional CSVs for multi-CSV join (issue #8)
