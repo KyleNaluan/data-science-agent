@@ -16,6 +16,7 @@ from .config import load_thresholds
 from .llm.base import LLMClient
 from .tools.correlation import CorrelationTool
 from .tools.distribution import DistributionTool
+from .tools.feature_suggestion import FeatureSuggestionTool
 from .tools.missing_value import MissingValueTool
 from .tools.outlier import OutlierTool
 from .tools.schema_file_parser import parse_schema_file
@@ -29,6 +30,7 @@ _DEFAULT_TOOLS = [
     DistributionTool(),
     OutlierTool(),
     CorrelationTool(),
+    FeatureSuggestionTool(),
 ]
 
 

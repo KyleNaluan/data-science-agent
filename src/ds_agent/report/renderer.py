@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 
-_PLACEHOLDER = "_Not yet analyzed in this run._"
+PLACEHOLDER = "_Not yet analyzed in this run._"
+_PLACEHOLDER = PLACEHOLDER  # kept for internal use
 
 
 def _safe_filename(col_name: str) -> str:
@@ -181,10 +182,35 @@ def _render_correlations(corr_data: dict) -> str:
     return "\n".join(lines)
 
 
+def _render_feature_engineering(feat_data: dict) -> str:
+    suggestions = feat_data.get("suggestions", [])
+    if not suggestions:
+        return "_No feature engineering suggestions generated for this dataset._\n"
+
+    lines: list[str] = []
+    high = [s for s in suggestions if s.get("priority") == "high"]
+    medium = [s for s in suggestions if s.get("priority") == "medium"]
+    low = [s for s in suggestions if s.get("priority") == "low"]
+
+    for label, group in [("High Priority", high), ("Medium Priority", medium), ("Low Priority", low)]:
+        if not group:
+            continue
+        lines.append(f"### {label}\n")
+        for s in group:
+            cols = s.get("columns", [])
+            col_display = " × ".join(f"**{c}**" for c in cols) if cols else "?"
+            stype = s.get("suggestion_type", "").replace("_", " ").title()
+            lines.append(f"- **{stype}** — {col_display}: {s.get('rationale', '')}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def render_report(
     tool_results: dict,
     metadata: dict | None = None,
     flagged_assumptions: list[dict] | None = None,
+    executive_summary: str | None = None,
 ) -> str:
     """
     Assemble the fixed 5-section markdown report from accumulated tool results.
@@ -197,7 +223,8 @@ def render_report(
 
     sections: list[str] = []
     sections.append(f"# EDA Report\n\n**Source:** `{csv_path}`\n")
-    sections.append("## Executive Summary\n\n" + _PLACEHOLDER)
+    exec_body = executive_summary if executive_summary else _PLACEHOLDER
+    sections.append("## Executive Summary\n\n" + exec_body)
 
     schema = tool_results.get("schema_inference")
     missing_value_data = tool_results.get("missing_value_analysis")
@@ -231,6 +258,11 @@ def render_report(
         corr_body = _PLACEHOLDER
     sections.append("## Correlations\n\n" + corr_body)
 
-    sections.append("## Feature Engineering Recommendations\n\n" + _PLACEHOLDER)
+    feat_data = tool_results.get("feature_suggestion")
+    if feat_data is not None:
+        feat_body = _render_feature_engineering(feat_data)
+    else:
+        feat_body = _PLACEHOLDER
+    sections.append("## Feature Engineering Recommendations\n\n" + feat_body)
 
     return "\n\n".join(sections) + "\n"
