@@ -13,6 +13,10 @@
 - The uncertainty mechanism (`uncertainty.py`) is generic, keyed by trigger type + documented default — new uncertainty triggers plug into it rather than inventing their own pause/flag logic
 - Chart files go in a `charts/` subdirectory of output_dir; reference them in the report via relative markdown image links
 
+## Issue implementation workflow
+
+When implementing issues, proceed autonomously all the way to completion — do not pause to ask permission or confirm next steps unless something genuinely requires manual approval (e.g. a destructive action or an ambiguous external dependency). Use default recommendations for any design decisions not specified in the issue. Check in only at the end with a summary of what was done.
+
 ## Agent skills
 
 ### Issue tracker

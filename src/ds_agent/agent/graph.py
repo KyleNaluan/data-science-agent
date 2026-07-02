@@ -28,7 +28,7 @@ IMPORTANT: You must never request or reference individual rows of data.
 
 Follow this analysis sequence:
 {steps}
-{stop_step}. Once all tools have run, stop calling tools and respond with a plain text message.
+{stop_step}. Once all tools have run, respond with a 3–5 sentence executive summary for a non-technical stakeholder. Reference specific column names, numeric values, and key findings from the analysis (e.g. skew values, missing rates, notable correlations, suggested transforms). Do not reference individual data rows.
 """
 
 
@@ -484,10 +484,13 @@ def build_graph(
         return result
 
     def report_assembly(state: AgentState) -> dict:
+        last_message = state["messages"][-1] if state["messages"] else {}
+        executive_summary_text = _extract_reasoning_text(last_message) or None
         report = render_report(
             tool_results=state["tool_results"],
             metadata={"csv_path": state["csv_path"]},
             flagged_assumptions=state["flagged_assumptions"],
+            executive_summary=executive_summary_text,
         )
         return {"report": report}
 

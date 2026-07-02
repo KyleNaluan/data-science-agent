@@ -46,8 +46,9 @@ V1 is deliberately constrained to prove the reasoning loop and output quality be
 
 | Version | Key Addition |
 |---------|-------------|
-| V2 | ML model selection & training; auto feature engineering |
-| V2 | Natural language Q&A over the dataset and report |
+| V2 | Supervised ML model selection & training (classification + regression); baseline evaluation metrics and model artifacts |
+| V3 | Natural language Q&A / conversational follow-up over the dataset and report (requires multi-turn stateful interaction — deferred from V2) |
+| V3 | Automated feature transformation applied before training (inter-tool DataFrame chaining — deferred from V2) |
 | V3 | Jupyter notebook export as a reference artifact |
 | V3 | Non-CSV inputs (databases, Parquet, APIs) |
 | V4 | Multi-run comparison; longitudinal dataset tracking |
